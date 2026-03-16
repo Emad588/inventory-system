@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOCI Inventory System — Live Demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Inter',sans-serif;background:#f9fafb}
+[dir=rtl] body{font-family:'Tajawal','Inter',sans-serif}
+[dir=rtl] .text-left{text-align:right}[dir=rtl] .text-right{text-align:left}
+[dir=rtl] .ml-64{margin-left:0;margin-right:16rem}
+[dir=rtl] .left-0{left:auto;right:0}
+[dir=rtl] .ml-3{margin-left:0;margin-right:0.75rem}
+[dir=rtl] .mr-3{margin-right:0;margin-left:0.75rem}
+.sidebar{transition:width .3s}
+.fade-in{animation:fadeIn .3s ease-in}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,0.1)}
+.stat-card{transition:all .2s}
+.badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ===== TRANSLATIONS =====
+const T = {
+  en: {
+    dir:'ltr', appName:'MOCI Inventory', dashboard:'Dashboard', products:'Products', warehouses:'Warehouses',
+    transactions:'Transactions', integration:'Integration Export', auditLogs:'Audit Logs', login:'Login',
+    logout:'Logout', email:'Email', password:'Password', signIn:'Sign In', welcome:'Welcome',
+    totalProducts:'Total Products', totalWarehouses:'Total Warehouses', totalTransactions:'Total Transactions',
+    todayTransactions:"Today's Transactions", recentTransactions:'Recent Transactions',
+    warehouseSummary:'Warehouse Summary', add:'Add', edit:'Edit', delete:'Delete', save:'Save',
+    cancel:'Cancel', search:'Search...', actions:'Actions', productNameEn:'Product Name (EN)',
+    productNameAr:'Product Name (AR)', barcode:'Barcode', hsCode:'HS Code', brand:'Brand',
+    countryOfOrigin:'Country of Origin', unitOfMeasurement:'Unit', unitWeightSize:'Weight/Size',
+    warehouseNumber:'Warehouse No.', warehouseName:'Warehouse Name', location:'Location',
+    transactionRef:'Ref Number', transactionType:'Type', quantity:'Quantity', salesPrice:'Sales Price',
+    noOfInvoices:'Invoices', supplierCategory:'Supplier Cat.', transactionDate:'Date',
+    sale:'Sale', return:'Return', transfer:'Transfer', exportJSON:'Export JSON', exportCSV:'Export CSV',
+    apiEndpoint:'API Endpoint', dateFrom:'From', dateTo:'To', noData:'No data found',
+    users:'Users', name:'Name', role:'Role', admin:'Admin', staff:'Staff',
+    typeBreakdown:'Transaction Breakdown', count:'Count', totalQty:'Total Qty', warehouse:'Warehouse',
+    isSupplier:'Supplier', yes:'Yes', no:'No', filters:'Filters', apply:'Apply', clear:'Clear',
+    addProduct:'Add Product', addWarehouse:'Add Warehouse', addTransaction:'Add Transaction',
+    billing:'Billing', invoiceNumber:'Invoice #', invoiceDate:'Invoice Date', dueDate:'Due Date',
+    customerName:'Customer', totalAmount:'Total', markPaid:'Mark Paid', addInvoice:'New Invoice',
+    draft:'Draft', sent:'Sent', paid:'Paid', overdue:'Overdue', cancelled:'Cancelled',
+    totalRevenue:'Total Revenue', totalPending:'Pending Amount', totalOverdue:'Overdue Amount',
+    description:'Description', unitPrice:'Unit Price', itemTotal:'Total', items:'Items',
+    addItem:'Add Item', removeItem:'Remove', subtotal:'Subtotal', taxRate:'Tax Rate (%)',
+    taxAmount:'Tax Amount', discountAmount:'Discount', currencyLabel:'Currency', paymentMethod:'Payment Method',
+    notesLabel:'Notes', customerEmail:'Email', customerPhone:'Phone', customerAddress:'Address',
+    customerTaxId:'Tax ID', customerNameAr:'Customer (AR)', viewInvoice:'View',
+    cash:'Cash', bankTransfer:'Bank Transfer', creditCard:'Credit Card', sar:'SAR',
+    printInvoice:'Print', invoices:'Invoices',
+  },
+  ar: {
+    dir:'rtl', appName:'نظام مخزون وزارة التجارة', dashboard:'لوحة التحكم', products:'المنتجات',
+    warehouses:'المستودعات', transactions:'المعاملات', integration:'تصدير التكامل',
+    auditLogs:'سجلات التدقيق', login:'تسجيل الدخول', logout:'تسجيل الخروج',
+    email:'البريد الإلكتروني', password:'كلمة المرور', signIn:'دخول', welcome:'مرحباً',
+    totalProducts:'إجمالي المنتجات', totalWarehouses:'إجمالي المستودعات',
+    totalTransactions:'إجمالي المعاملات', todayTransactions:'معاملات اليوم',
+    recentTransactions:'المعاملات الأخيرة', warehouseSummary:'ملخص المستودعات',
+    add:'إضافة', edit:'تعديل', delete:'حذف', save:'حفظ', cancel:'إلغاء', search:'بحث...',
+    actions:'الإجراءات', productNameEn:'اسم المنتج (إنجليزي)', productNameAr:'اسم المنتج (عربي)',
+    barcode:'الباركود', hsCode:'رمز النظام المنسق', brand:'العلامة التجارية',
+    countryOfOrigin:'بلد المنشأ', unitOfMeasurement:'وحدة القياس', unitWeightSize:'الوزن/الحجم',
+    warehouseNumber:'رقم المستودع', warehouseName:'اسم المستودع', location:'الموقع',
+    transactionRef:'رقم المرجع', transactionType:'نوع المعاملة', quantity:'الكمية',
+    salesPrice:'سعر البيع', noOfInvoices:'عدد الفواتير', supplierCategory:'فئة المورد',
+    transactionDate:'التاريخ', sale:'بيع', return:'إرجاع', transfer:'تحويل',
+    exportJSON:'تصدير JSON', exportCSV:'تصدير CSV', apiEndpoint:'نقطة API',
+    dateFrom:'من تاريخ', dateTo:'إلى تاريخ', noData:'لا توجد بيانات',
+    users:'المستخدمون', name:'الاسم', role:'الدور', admin:'مدير', staff:'موظف',
+    typeBreakdown:'تفصيل المعاملات', count:'العدد', totalQty:'إجمالي الكمية', warehouse:'المستودع',
+    isSupplier:'مورد', yes:'نعم', no:'لا', filters:'التصفية', apply:'تطبيق', clear:'مسح',
+    addProduct:'إضافة منتج', addWarehouse:'إضافة مستودع', addTransaction:'إضافة معاملة',
+    billing:'الفواتير', invoiceNumber:'رقم الفاتورة', invoiceDate:'تاريخ الفاتورة', dueDate:'تاريخ الاستحقاق',
+    customerName:'العميل', totalAmount:'المبلغ الإجمالي', markPaid:'تحديد كمدفوعة', addInvoice:'فاتورة جديدة',
+    draft:'مسودة', sent:'مرسلة', paid:'مدفوعة', overdue:'متأخرة', cancelled:'ملغاة',
+    totalRevenue:'إجمالي الإيرادات', totalPending:'المبالغ المعلقة', totalOverdue:'المبالغ المتأخرة',
+    description:'الوصف', unitPrice:'سعر الوحدة', itemTotal:'الإجمالي', items:'البنود',
+    addItem:'إضافة بند', removeItem:'إزالة', subtotal:'المجموع الفرعي', taxRate:'نسبة الضريبة (%)',
+    taxAmount:'مبلغ الضريبة', discountAmount:'الخصم', currencyLabel:'العملة', paymentMethod:'طريقة الدفع',
+    notesLabel:'ملاحظات', customerEmail:'البريد', customerPhone:'الهاتف', customerAddress:'العنوان',
+    customerTaxId:'الرقم الضريبي', customerNameAr:'العميل (عربي)', viewInvoice:'عرض',
+    cash:'نقدي', bankTransfer:'تحويل بنكي', creditCard:'بطاقة ائتمان', sar:'ر.س',
+    printInvoice:'طباعة', invoices:'الفواتير',
+  }
+};
+
+// ===== DEMO DATA =====
+const PRODUCTS = [
+  {id:1,productNameEn:'Extra Virgin Olive Oil',productNameAr:'زيت زيتون بكر ممتاز',barcode:'6281000001234',hsCode:'1509',brand:'AlMalik',countryOfOrigin:'SA',unitOfMeasurement:'Liter',unitWeightSize:'1'},
+  {id:2,productNameEn:'Arabic Coffee Beans',productNameAr:'بن عربي',barcode:'6281000005678',hsCode:'0901',brand:'Najd Coffee',countryOfOrigin:'SA',unitOfMeasurement:'KG',unitWeightSize:'0.5'},
+  {id:3,productNameEn:'Date Syrup',productNameAr:'دبس تمر',barcode:'6281000009012',hsCode:'2007',brand:'Al-Madinah',countryOfOrigin:'SA',unitOfMeasurement:'Bottle',unitWeightSize:'750ml'},
+  {id:4,productNameEn:'Saffron Premium',productNameAr:'زعفران فاخر',barcode:'6281000003456',hsCode:'0910',brand:'Najran Gold',countryOfOrigin:'SA',unitOfMeasurement:'Gram',unitWeightSize:'5'},
+  {id:5,productNameEn:'Mineral Water',productNameAr:'مياه معدنية',barcode:'6281000007890',hsCode:'2201',brand:'Hana',countryOfOrigin:'SA',unitOfMeasurement:'Pack',unitWeightSize:'12x500ml'},
+];
+const WAREHOUSES = [
+  {id:1,warehouseNumber:'WH-RYD-01',warehouseName:'Riyadh Central',location:'Riyadh, Industrial Area'},
+  {id:2,warehouseNumber:'WH-JED-01',warehouseName:'Jeddah Port Hub',location:'Jeddah, Port District'},
+  {id:3,warehouseNumber:'WH-DMM-01',warehouseName:'Dammam East',location:'Dammam, Eastern Province'},
+];
+const TRANSACTIONS = [
+  {id:1,transactionRefNumber:'TXN-2026-0001',productId:1,warehouseId:1,transactionType:'Sale',quantity:500,salesPrice:32.50,noOfInvoices:8,supplierCategory:'Wholesale',transactionDatetime:'2026-03-14T08:30:00Z',isSupplier:true},
+  {id:2,transactionRefNumber:'TXN-2026-0002',productId:2,warehouseId:2,transactionType:'Sale',quantity:200,salesPrice:85.00,noOfInvoices:3,supplierCategory:'Retail',transactionDatetime:'2026-03-14T10:15:00Z',isSupplier:false},
+  {id:3,transactionRefNumber:'TXN-2026-0003',productId:3,warehouseId:1,transactionType:'Transfer',quantity:1000,salesPrice:18.75,noOfInvoices:1,supplierCategory:'Wholesale',transactionDatetime:'2026-03-14T11:00:00Z',isSupplier:true},
+  {id:4,transactionRefNumber:'TXN-2026-0004',productId:4,warehouseId:3,transactionType:'Sale',quantity:50,salesPrice:450.00,noOfInvoices:2,supplierCategory:'Premium',transactionDatetime:'2026-03-14T13:45:00Z',isSupplier:true},
+  {id:5,transactionRefNumber:'TXN-2026-0005',productId:5,warehouseId:2,transactionType:'Return',quantity:100,salesPrice:12.00,noOfInvoices:1,supplierCategory:'Retail',transactionDatetime:'2026-03-14T15:20:00Z',isSupplier:false},
+];
+const AUDIT = [
+  {id:1,action:'LOGIN',entity:'User',entityId:'admin',createdAt:'2026-03-14T08:00:00Z',user:'System Admin'},
+  {id:2,action:'CREATE',entity:'Product',entityId:'1',createdAt:'2026-03-14T08:05:00Z',user:'System Admin'},
+  {id:3,action:'CREATE',entity:'Warehouse',entityId:'1',createdAt:'2026-03-14T08:10:00Z',user:'System Admin'},
+  {id:4,action:'CREATE',entity:'Transaction',entityId:'1',createdAt:'2026-03-14T08:30:00Z',user:'System Admin'},
+  {id:5,action:'EXPORT',entity:'SupplierTransaction',entityId:null,createdAt:'2026-03-14T09:00:00Z',user:'System Admin'},
+  {id:6,action:'CREATE',entity:'Product',entityId:'2',createdAt:'2026-03-14T09:15:00Z',user:'System Admin'},
+  {id:7,action:'UPDATE',entity:'Product',entityId:'1',createdAt:'2026-03-14T10:00:00Z',user:'System Admin'},
+  {id:8,action:'CREATE',entity:'Transaction',entityId:'2',createdAt:'2026-03-14T10:15:00Z',user:'System Admin'},
+];
+
+const INVOICES = [
+  {id:1,invoiceNumber:'INV-2026-00001',invoiceDate:'2026-03-10',dueDate:'2026-04-10',status:'Paid',customerName:'Al-Rajhi Trading Co.',customerNameAr:'شركة الراجحي التجارية',customerEmail:'orders@rajhi-trading.sa',customerPhone:'+966 11 234 5678',customerTaxId:'300012345600003',subtotal:16250,taxRate:15,taxAmount:2437.5,discount:0,totalAmount:18687.5,currency:'SAR',paymentDate:'2026-03-12',paymentMethod:'Bank Transfer',items:[{description:'Extra Virgin Olive Oil',quantity:500,unitPrice:32.50,discount:0,total:16250}]},
+  {id:2,invoiceNumber:'INV-2026-00002',invoiceDate:'2026-03-12',dueDate:'2026-04-12',status:'Sent',customerName:'Gulf Markets Group',customerNameAr:'مجموعة أسواق الخليج',customerEmail:'purchasing@gulfmarkets.sa',customerPhone:'+966 12 345 6789',customerTaxId:'300098765400003',subtotal:17000,taxRate:15,taxAmount:2550,discount:500,totalAmount:19050,currency:'SAR',items:[{description:'Arabic Coffee Beans',quantity:200,unitPrice:85,discount:0,total:17000}]},
+  {id:3,invoiceNumber:'INV-2026-00003',invoiceDate:'2026-03-14',dueDate:'2026-03-28',status:'Overdue',customerName:'Medina Food Supplies',customerNameAr:'مؤسسة المدينة للتموين',customerEmail:'info@medinafood.sa',customerPhone:'+966 14 876 5432',customerTaxId:'300056789000003',subtotal:22500,taxRate:15,taxAmount:3375,discount:0,totalAmount:25875,currency:'SAR',items:[{description:'Saffron Premium',quantity:50,unitPrice:450,discount:0,total:22500}]},
+  {id:4,invoiceNumber:'INV-2026-00004',invoiceDate:'2026-03-15',dueDate:'2026-04-15',status:'Draft',customerName:'Eastern Province Wholesale',customerNameAr:'جملة المنطقة الشرقية',customerEmail:'orders@epwholesale.sa',customerPhone:'+966 13 456 7890',subtotal:18750,taxRate:15,taxAmount:2812.5,discount:250,totalAmount:21312.5,currency:'SAR',items:[{description:'Date Syrup',quantity:1000,unitPrice:18.75,discount:0,total:18750}]},
+];
+
+// ===== MODAL =====
+function Modal({title, children, onClose, onSave, wide}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{backgroundColor:'rgba(0,0,0,0.4)'}}>
+      <div className={`bg-white rounded-xl shadow-2xl ${wide?'max-w-3xl':'max-w-lg'} w-full mx-4 max-h-screen overflow-auto`}>
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+        <div className="px-6 py-4">{children}</div>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-xl">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border rounded-lg hover:bg-gray-50">Cancel</button>
+          {onSave && <button onClick={onSave} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Save</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== LOGIN PAGE =====
+function LoginPage({onLogin, lang, toggleLang}) {
+  const t = k => T[lang][k]||k;
+  const [email,setEmail]=useState('admin@moci.local');
+  const [pass,setPass]=useState('admin123');
+  const [err,setErr]=useState('');
+  const handleLogin = () => {
+    if(email==='admin@moci.local' && pass==='admin123') onLogin({name:'System Admin',role:'admin',email});
+    else if(email==='staff@moci.local' && pass==='staff123') onLogin({name:'Ahmed Staff',role:'staff',email});
+    else setErr('Invalid email or password');
+  };
+  return (
+    <div dir={T[lang].dir} className="min-h-screen flex items-center justify-center" style={{background:'linear-gradient(135deg,#1e3a8a 0%,#3b82f6 50%,#60a5fa 100%)'}}>
+      <div className="absolute top-4 right-4">
+        <button onClick={toggleLang} className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg text-sm font-medium hover:bg-opacity-30">
+          {lang==='en'?'عربي':'English'}
+        </button>
+      </div>
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md fade-in">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">🏭</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800">{t('appName')}</h1>
+          <p className="text-gray-500 text-sm mt-1">{t('login')}</p>
+        </div>
+        {err && <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm mb-4">{err}</div>}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('email')}</label>
+            <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setErr('')}}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              placeholder="admin@moci.local"/>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('password')}</label>
+            <input type="password" value={pass} onChange={e=>{setPass(e.target.value);setErr('')}}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              onKeyDown={e=>e.key==='Enter'&&handleLogin()}/>
+          </div>
+          <button onClick={handleLogin}
+            className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+            {t('signIn')}
+          </button>
+        </div>
+        <div className="mt-6 p-3 bg-gray-50 rounded-lg text-xs text-gray-500 text-center">
+          Demo: admin@moci.local / admin123
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== DASHBOARD =====
+function DashboardPage({t, lang}) {
+  const stats = [
+    {label:t('totalProducts'), value:PRODUCTS.length, icon:'📦', color:'bg-blue-500'},
+    {label:t('totalWarehouses'), value:WAREHOUSES.length, icon:'🏭', color:'bg-green-500'},
+    {label:t('totalTransactions'), value:TRANSACTIONS.length, icon:'💰', color:'bg-purple-500'},
+    {label:t('todayTransactions'), value:TRANSACTIONS.length, icon:'📊', color:'bg-yellow-500'},
+  ];
+  const types = [{type:'Sale',count:3,qty:750,color:'bg-green-100 text-green-700'},{type:'Transfer',count:1,qty:1000,color:'bg-blue-100 text-blue-700'},{type:'Return',count:1,qty:100,color:'bg-red-100 text-red-700'}];
+  return (
+    <div className="fade-in">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">{t('dashboard')}</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        {stats.map((s,i)=>(
+          <div key={i} className="stat-card bg-white rounded-xl shadow-sm border p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">{s.label}</p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">{s.value}</p>
+              </div>
+              <div className={`${s.color} w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white shadow-sm`}>
+                {s.icon}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border">
+          <div className="px-5 py-4 border-b"><h2 className="font-semibold text-gray-800">{t('recentTransactions')}</h2></div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50"><tr>
+                <th className="px-4 py-3 text-left font-medium text-gray-500">{t('transactionRef')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-500">{t('transactionType')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-500">{t('quantity')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-500">{t('salesPrice')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-500">{t('transactionDate')}</th>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-100">
+                {TRANSACTIONS.map(tx=>(
+                  <tr key={tx.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-700">{tx.transactionRefNumber}</td>
+                    <td className="px-4 py-3"><span className={`badge ${tx.transactionType==='Sale'?'bg-green-100 text-green-700':tx.transactionType==='Return'?'bg-red-100 text-red-700':'bg-blue-100 text-blue-700'}`}>{t(tx.transactionType.toLowerCase())}</span></td>
+                    <td className="px-4 py-3 text-gray-600">{tx.quantity.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-gray-600">{tx.salesPrice.toFixed(2)} SAR</td>
+                    <td className="px-4 py-3 text-gray-500">{new Date(tx.transactionDatetime).toLocaleDateString(lang==='ar'?'ar-SA':'en-US')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div className="bg-white rounded-xl shadow-sm border mb-5">
+            <div className="px-5 py-4 border-b"><h2 className="font-semibold text-gray-800">{t('typeBreakdown')}</h2></div>
+            <div className="p-5 space-y-4">
+              {types.map(tp=>(
+                <div key={tp.type}>
+                  <div className="flex justify-between text-sm mb-1"><span className="font-medium text-gray-700">{t(tp.type.toLowerCase())}</span><span className="text-gray-500">{tp.count} ({tp.qty})</span></div>
+                  <div className="w-full bg-gray-100 rounded-full h-2.5"><div className={`h-2.5 rounded-full ${tp.type==='Sale'?'bg-green-500':tp.type==='Transfer'?'bg-blue-500':'bg-red-500'}`} style={{width:`${tp.qty/1000*100}%`}}/></div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border">
+            <div className="px-5 py-4 border-b"><h2 className="font-semibold text-gray-800">{t('warehouseSummary')}</h2></div>
+            <div className="p-4 space-y-3">
+              {WAREHOUSES.map(w=>(
+                <div key={w.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div><p className="font-medium text-gray-700 text-sm">{w.warehouseName}</p><p className="text-xs text-gray-500">{w.location}</p></div>
+                  <span className="badge bg-blue-100 text-blue-700">{w.warehouseNumber}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== PRODUCTS PAGE =====
+function ProductsPage({t, lang, isAdmin}) {
+  const [search,setSearch]=useState('');
+  const filtered = PRODUCTS.filter(p => !search || p.productNameEn.toLowerCase().includes(search.toLowerCase()) || p.productNameAr.includes(search) || p.barcode.includes(search));
+  return (
+    <div className="fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">{t('products')}</h1>
+        {isAdmin && <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ {t('addProduct')}</button>}
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border">
+        <div className="p-4 border-b">
+          <input type="text" placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}
+            className="w-full md:w-80 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50"><tr>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">ID</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('productNameEn')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('productNameAr')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('barcode')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('hsCode')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('brand')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('unitOfMeasurement')}</th>
+              {isAdmin && <th className="px-4 py-3 text-left font-medium text-gray-500">{t('actions')}</th>}
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100">
+              {filtered.map(p=>(
+                <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-gray-500">{p.id}</td>
+                  <td className="px-4 py-3 font-medium text-gray-700">{p.productNameEn}</td>
+                  <td className="px-4 py-3 text-gray-600" dir="rtl">{p.productNameAr}</td>
+                  <td className="px-4 py-3 font-mono text-gray-500 text-xs">{p.barcode}</td>
+                  <td className="px-4 py-3 text-gray-600">{p.hsCode}</td>
+                  <td className="px-4 py-3 text-gray-600">{p.brand}</td>
+                  <td className="px-4 py-3 text-gray-600">{p.unitOfMeasurement}</td>
+                  {isAdmin && <td className="px-4 py-3"><button className="text-blue-600 hover:text-blue-800 text-xs mr-3">Edit</button><button className="text-red-600 hover:text-red-800 text-xs">Delete</button></td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== WAREHOUSES PAGE =====
+function WarehousesPage({t, isAdmin}) {
+  return (
+    <div className="fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">{t('warehouses')}</h1>
+        {isAdmin && <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ {t('addWarehouse')}</button>}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {WAREHOUSES.map(w=>(
+          <div key={w.id} className="bg-white rounded-xl shadow-sm border p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <span className="badge bg-blue-100 text-blue-700">{w.warehouseNumber}</span>
+              {isAdmin && <div><button className="text-blue-600 hover:text-blue-800 text-xs mr-2">Edit</button><button className="text-red-600 hover:text-red-800 text-xs">Delete</button></div>}
+            </div>
+            <h3 className="font-semibold text-gray-800 text-lg mb-1">{w.warehouseName}</h3>
+            <p className="text-sm text-gray-500 flex items-center"><span className="mr-1">📍</span> {w.location}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ===== TRANSACTIONS PAGE =====
+function TransactionsPage({t, lang}) {
+  const [typeFilter,setTypeFilter]=useState('');
+  const filtered = TRANSACTIONS.filter(tx => !typeFilter || tx.transactionType===typeFilter);
+  return (
+    <div className="fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">{t('transactions')}</h1>
+        <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ {t('addTransaction')}</button>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border p-4 mb-6">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div><label className="block text-xs font-medium text-gray-500 mb-1">{t('transactionType')}</label>
+            <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <option value="">All</option><option value="Sale">{t('sale')}</option><option value="Return">{t('return')}</option><option value="Transfer">{t('transfer')}</option>
+            </select>
+          </div>
+          <div><label className="block text-xs font-medium text-gray-500 mb-1">{t('dateFrom')}</label><input type="date" className="px-3 py-2 text-sm border border-gray-300 rounded-lg"/></div>
+          <div><label className="block text-xs font-medium text-gray-500 mb-1">{t('dateTo')}</label><input type="date" className="px-3 py-2 text-sm border border-gray-300 rounded-lg"/></div>
+        </div>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50"><tr>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('transactionRef')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">Product</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('warehouse')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('transactionType')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('quantity')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('salesPrice')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('transactionDate')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('actions')}</th>
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100">
+              {filtered.map(tx=>{
+                const prod = PRODUCTS.find(p=>p.id===tx.productId);
+                const wh = WAREHOUSES.find(w=>w.id===tx.warehouseId);
+                return (
+                  <tr key={tx.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-700">{tx.transactionRefNumber}</td>
+                    <td className="px-4 py-3 text-gray-600">{lang==='ar'?prod?.productNameAr:prod?.productNameEn}</td>
+                    <td className="px-4 py-3 text-gray-600">{wh?.warehouseName}</td>
+                    <td className="px-4 py-3"><span className={`badge ${tx.transactionType==='Sale'?'bg-green-100 text-green-700':tx.transactionType==='Return'?'bg-red-100 text-red-700':'bg-blue-100 text-blue-700'}`}>{t(tx.transactionType.toLowerCase())}</span></td>
+                    <td className="px-4 py-3 text-gray-600">{tx.quantity.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-gray-600">{tx.salesPrice.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-gray-500">{new Date(tx.transactionDatetime).toLocaleString(lang==='ar'?'ar-SA':'en-US',{dateStyle:'short',timeStyle:'short'})}</td>
+                    <td className="px-4 py-3"><button className="text-blue-600 hover:text-blue-800 text-xs mr-3">Edit</button><button className="text-red-600 hover:text-red-800 text-xs">Delete</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== INTEGRATION EXPORT PAGE =====
+function IntegrationPage({t}) {
+  const [exported,setExported]=useState(null);
+  const moциData = TRANSACTIONS.map(tx=>{
+    const p=PRODUCTS.find(x=>x.id===tx.productId), w=WAREHOUSES.find(x=>x.id===tx.warehouseId);
+    return {WarehouseNumber:w?.warehouseNumber,HScode:p?.hsCode,Barcode:p?.barcode,ProductNameArabic:p?.productNameAr,ProductNameEnglish:p?.productNameEn,TransactionType:tx.transactionType,TransactionDatetime:tx.transactionDatetime,Quantity:tx.quantity,SalesPrice:tx.salesPrice,NoOfInvoices:tx.noOfInvoices,SupplierCategory:tx.supplierCategory,TransactionRefNumber:tx.transactionRefNumber,CountryOfOrigin:p?.countryOfOrigin,Brand:p?.brand,UnitOfMeasurement:p?.unitOfMeasurement,UnitWeightSize:p?.unitWeightSize,IsSupplier:tx.isSupplier};
+  });
+  return (
+    <div className="fade-in">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">{t('integration')}</h1>
+      <div className="bg-white rounded-xl shadow-sm border p-5 mb-6">
+        <h2 className="font-semibold text-gray-700 mb-3">{t('filters')}</h2>
+        <div className="flex flex-wrap gap-3 items-end">
+          <div><label className="block text-xs font-medium text-gray-500 mb-1">{t('dateFrom')}</label><input type="date" className="px-3 py-2 text-sm border rounded-lg"/></div>
+          <div><label className="block text-xs font-medium text-gray-500 mb-1">{t('dateTo')}</label><input type="date" className="px-3 py-2 text-sm border rounded-lg"/></div>
+          <div><label className="block text-xs font-medium text-gray-500 mb-1">{t('transactionType')}</label>
+            <select className="px-3 py-2 text-sm border rounded-lg"><option value="">All</option><option>Sale</option><option>Return</option><option>Transfer</option></select>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <button onClick={()=>setExported(JSON.stringify({supplierTransactions:moциData,count:moциData.length},null,2))} className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium shadow-sm"><span className="text-xl">📋</span>{t('exportJSON')}</button>
+        <button className="flex items-center justify-center gap-2 px-6 py-4 bg-green-600 text-white rounded-xl hover:bg-green-700 font-medium shadow-sm"><span className="text-xl">📄</span>{t('exportCSV')}</button>
+        <button className="flex items-center justify-center gap-2 px-6 py-4 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-medium shadow-sm"><span className="text-xl">🔗</span>{t('apiEndpoint')}</button>
+      </div>
+      {exported && (
+        <div className="bg-gray-900 text-green-400 p-5 rounded-xl font-mono text-xs overflow-auto max-h-96">
+          <div className="flex justify-between items-center mb-3"><span className="text-gray-400">MOCI Format — {moциData.length} records</span><button onClick={()=>setExported(null)} className="text-gray-500 hover:text-white">&times;</button></div>
+          <pre>{exported}</pre>
+        </div>
+      )}
+      <div className="bg-blue-50 rounded-xl p-5 mt-6 border border-blue-200">
+        <h3 className="font-semibold text-blue-800 mb-2">MOCI Integration Format</h3>
+        <p className="text-sm text-blue-700">All 21 fields are automatically populated: WarehouseNumber, HScode, Barcode, ProductNameArabic, ProductNameEnglish, TransactionType, TransactionDatetime, Quantity, SalesPrice, NoOfInvoices, SupplierCategory, ToCPNumberB2B, TransactionRefNumber, CountryOfOrigin, Brand, UnitOfMeasurement, UnitWeightSize, PackageUnitOfMeasurement, UnitItemBarcode, FromCPNumberB2B, IsSupplier</p>
+      </div>
+    </div>
+  );
+}
+
+// ===== AUDIT PAGE =====
+function AuditPage({t, lang}) {
+  const colors = {CREATE:'bg-green-100 text-green-700',UPDATE:'bg-blue-100 text-blue-700',DELETE:'bg-red-100 text-red-700',LOGIN:'bg-purple-100 text-purple-700',EXPORT:'bg-yellow-100 text-yellow-700'};
+  return (
+    <div className="fade-in">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">{t('auditLogs')}</h1>
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50"><tr>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('transactionDate')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">Action</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">Entity</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">ID</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">User</th>
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100">
+              {AUDIT.map(a=>(
+                <tr key={a.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-gray-500">{new Date(a.createdAt).toLocaleString(lang==='ar'?'ar-SA':'en-US')}</td>
+                  <td className="px-4 py-3"><span className={`badge ${colors[a.action]||'bg-gray-100 text-gray-600'}`}>{a.action}</span></td>
+                  <td className="px-4 py-3 text-gray-700">{a.entity}</td>
+                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{a.entityId||'-'}</td>
+                  <td className="px-4 py-3 text-gray-600">{a.user}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== USERS PAGE =====
+function UsersPage({t}) {
+  const users = [{id:1,name:'System Admin',email:'admin@moci.local',role:'admin',isActive:true},{id:2,name:'Ahmed Staff',email:'staff@moci.local',role:'staff',isActive:true}];
+  return (
+    <div className="fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">{t('users')}</h1>
+        <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ Add User</button>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50"><tr>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">{t('name')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">{t('email')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">{t('role')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">Status</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">{t('actions')}</th>
+          </tr></thead>
+          <tbody className="divide-y divide-gray-100">
+            {users.map(u=>(
+              <tr key={u.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-medium text-gray-700">{u.name}</td>
+                <td className="px-4 py-3 text-gray-600">{u.email}</td>
+                <td className="px-4 py-3"><span className={`badge ${u.role==='admin'?'bg-purple-100 text-purple-700':'bg-gray-100 text-gray-700'}`}>{t(u.role)}</span></td>
+                <td className="px-4 py-3"><span className="badge bg-green-100 text-green-700">Active</span></td>
+                <td className="px-4 py-3"><button className="text-blue-600 hover:text-blue-800 text-xs">Edit</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ===== BILLING PAGE =====
+function BillingPage({t, lang}) {
+  const [viewInv,setViewInv]=useState(null);
+  const statusColors = {Draft:'bg-gray-100 text-gray-700',Sent:'bg-blue-100 text-blue-700',Paid:'bg-green-100 text-green-700',Overdue:'bg-red-100 text-red-700',Cancelled:'bg-yellow-100 text-yellow-700'};
+  const statusLabel = s => ({Draft:t('draft'),Sent:t('sent'),Paid:t('paid'),Overdue:t('overdue'),Cancelled:t('cancelled')}[s]||s);
+  const paidTotal = INVOICES.filter(i=>i.status==='Paid').reduce((s,i)=>s+i.totalAmount,0);
+  const pendingTotal = INVOICES.filter(i=>i.status==='Draft'||i.status==='Sent').reduce((s,i)=>s+i.totalAmount,0);
+  const overdueTotal = INVOICES.filter(i=>i.status==='Overdue').reduce((s,i)=>s+i.totalAmount,0);
+  return (
+    <div className="fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">{t('billing')}</h1>
+        <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ {t('addInvoice')}</button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="stat-card bg-white rounded-xl shadow-sm border p-5"><p className="text-sm text-gray-500">{t('invoices')}</p><p className="text-2xl font-bold text-gray-800 mt-1">{INVOICES.length}</p></div>
+        <div className="stat-card bg-white rounded-xl shadow-sm border p-5"><p className="text-sm text-green-600">{t('totalRevenue')}</p><p className="text-2xl font-bold text-green-700 mt-1">{paidTotal.toLocaleString()} {t('sar')}</p></div>
+        <div className="stat-card bg-white rounded-xl shadow-sm border p-5"><p className="text-sm text-blue-600">{t('totalPending')}</p><p className="text-2xl font-bold text-blue-700 mt-1">{pendingTotal.toLocaleString()} {t('sar')}</p></div>
+        <div className="stat-card bg-white rounded-xl shadow-sm border p-5"><p className="text-sm text-red-600">{t('totalOverdue')}</p><p className="text-2xl font-bold text-red-700 mt-1">{overdueTotal.toLocaleString()} {t('sar')}</p></div>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50"><tr>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">{t('invoiceNumber')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">{t('customerName')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">{t('invoiceDate')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">{t('dueDate')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">{t('totalAmount')}</th>
+            <th className="px-4 py-3 text-center font-medium text-gray-500">Status</th>
+            <th className="px-4 py-3 text-center font-medium text-gray-500">{t('actions')}</th>
+          </tr></thead>
+          <tbody className="divide-y divide-gray-100">
+            {INVOICES.map(inv=>(
+              <tr key={inv.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-mono text-blue-700 font-medium">{inv.invoiceNumber}</td>
+                <td className="px-4 py-3">{lang==='ar'?(inv.customerNameAr||inv.customerName):inv.customerName}</td>
+                <td className="px-4 py-3 text-gray-600">{inv.invoiceDate}</td>
+                <td className="px-4 py-3 text-gray-600">{inv.dueDate||'-'}</td>
+                <td className="px-4 py-3 font-semibold">{inv.totalAmount.toLocaleString()} {inv.currency}</td>
+                <td className="px-4 py-3 text-center"><span className={`badge ${statusColors[inv.status]||''}`}>{statusLabel(inv.status)}</span></td>
+                <td className="px-4 py-3 text-center">
+                  <button onClick={()=>setViewInv(inv)} className="text-blue-600 hover:text-blue-800 text-xs mr-2">{t('viewInvoice')}</button>
+                  {inv.status!=='Paid'&&inv.status!=='Cancelled'&&<button className="text-green-600 hover:text-green-800 text-xs mr-2">{t('markPaid')}</button>}
+                  <button className="text-yellow-600 hover:text-yellow-800 text-xs">{t('edit')}</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {viewInv && (
+        <Modal title={viewInv.invoiceNumber} onClose={()=>setViewInv(null)} wide>
+          <div className="space-y-4">
+            <div className="flex justify-between items-start">
+              <div><span className={`badge ${statusColors[viewInv.status]}`}>{statusLabel(viewInv.status)}</span></div>
+              <div className="text-right text-sm text-gray-500"><p>{t('invoiceDate')}: {viewInv.invoiceDate}</p>{viewInv.dueDate&&<p>{t('dueDate')}: {viewInv.dueDate}</p>}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><p className="font-medium text-gray-700">{t('customerName')}</p><p>{viewInv.customerName}</p>{viewInv.customerNameAr&&<p className="text-gray-500">{viewInv.customerNameAr}</p>}{viewInv.customerEmail&&<p>{viewInv.customerEmail}</p>}{viewInv.customerPhone&&<p>{viewInv.customerPhone}</p>}</div>
+              <div>{viewInv.customerTaxId&&<><p className="font-medium text-gray-700">{t('customerTaxId')}</p><p>{viewInv.customerTaxId}</p></>}</div>
+            </div>
+            <table className="w-full text-sm border">
+              <thead className="bg-gray-50"><tr><th className="px-3 py-2 text-left">#</th><th className="px-3 py-2 text-left">{t('description')}</th><th className="px-3 py-2 text-left">{t('quantity')}</th><th className="px-3 py-2 text-left">{t('unitPrice')}</th><th className="px-3 py-2 text-left">{t('itemTotal')}</th></tr></thead>
+              <tbody>{(viewInv.items||[]).map((item,i)=>(<tr key={i}><td className="px-3 py-2">{i+1}</td><td className="px-3 py-2">{item.description}</td><td className="px-3 py-2">{item.quantity}</td><td className="px-3 py-2">{item.unitPrice.toLocaleString()}</td><td className="px-3 py-2 font-medium">{item.total.toLocaleString()}</td></tr>))}</tbody>
+            </table>
+            <div className="flex justify-end">
+              <div className="w-64 text-sm space-y-1">
+                <div className="flex justify-between"><span>{t('subtotal')}:</span><span>{viewInv.subtotal.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>{t('taxRate')}:</span><span>{viewInv.taxRate}%</span></div>
+                <div className="flex justify-between"><span>{t('taxAmount')}:</span><span>{viewInv.taxAmount.toLocaleString()}</span></div>
+                {viewInv.discount>0&&<div className="flex justify-between"><span>{t('discountAmount')}:</span><span>-{viewInv.discount.toLocaleString()}</span></div>}
+                <div className="flex justify-between font-bold text-base border-t pt-2"><span>{t('totalAmount')}:</span><span>{viewInv.totalAmount.toLocaleString()} {viewInv.currency}</span></div>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ===== MAIN APP =====
+function App() {
+  const [user,setUser]=useState(null);
+  const [lang,setLang]=useState('en');
+  const [page,setPage]=useState('dashboard');
+  const t = k => T[lang][k]||k;
+  const dir = T[lang].dir;
+  const toggleLang = ()=>setLang(l=>l==='en'?'ar':'en');
+
+  if(!user) return <LoginPage onLogin={setUser} lang={lang} toggleLang={toggleLang}/>;
+
+  const isAdmin = user.role==='admin';
+  const navItems = [
+    {key:'dashboard',icon:'📊'},{key:'products',icon:'📦'},{key:'warehouses',icon:'🏭'},
+    {key:'transactions',icon:'💰'},{key:'billing',icon:'🧾'},{key:'integration',icon:'🔗'},
+  ];
+  const adminItems = [{key:'auditLogs',page:'audit',icon:'📋'},{key:'users',icon:'👥'}];
+
+  const pages = {
+    dashboard: <DashboardPage t={t} lang={lang}/>,
+    products: <ProductsPage t={t} lang={lang} isAdmin={isAdmin}/>,
+    warehouses: <WarehousesPage t={t} isAdmin={isAdmin}/>,
+    transactions: <TransactionsPage t={t} lang={lang}/>,
+    billing: <BillingPage t={t} lang={lang}/>,
+    integration: <IntegrationPage t={t}/>,
+    audit: <AuditPage t={t} lang={lang}/>,
+    users: <UsersPage t={t}/>,
+  };
+
+  return (
+    <div dir={dir} className="min-h-screen bg-gray-50">
+      <aside className="fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-30">
+        <div className="p-4 border-b"><h1 className="text-xl font-bold text-blue-700">{t('appName')}</h1></div>
+        <nav className="mt-4 px-2">
+          {navItems.map(item=>(
+            <button key={item.key} onClick={()=>setPage(item.page||item.key)}
+              className={`flex items-center w-full px-4 py-3 mb-1 rounded-lg text-sm font-medium transition-colors ${page===(item.page||item.key)?'bg-blue-50 text-blue-700':'text-gray-600 hover:bg-gray-100'}`}>
+              <span className="text-lg">{item.icon}</span><span className="ml-3">{t(item.key)}</span>
+            </button>
+          ))}
+          {isAdmin && <>
+            <hr className="my-3 border-gray-200"/>
+            {adminItems.map(item=>(
+              <button key={item.key} onClick={()=>setPage(item.page||item.key)}
+                className={`flex items-center w-full px-4 py-3 mb-1 rounded-lg text-sm font-medium transition-colors ${page===(item.page||item.key)?'bg-blue-50 text-blue-700':'text-gray-600 hover:bg-gray-100'}`}>
+                <span className="text-lg">{item.icon}</span><span className="ml-3">{t(item.key)}</span>
+              </button>
+            ))}
+          </>}
+        </nav>
+      </aside>
+      <div className="ml-64">
+        <header className="bg-white shadow-sm border-b sticky top-0 z-20">
+          <div className="flex items-center justify-between px-6 py-3">
+            <span className="text-sm text-gray-500">{t('welcome')}, {user.name}</span>
+            <div className="flex items-center gap-3">
+              <button onClick={toggleLang} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">
+                {lang==='en'?'عربي':'English'}
+              </button>
+              <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">{t(user.role)}</span>
+              <button onClick={()=>setUser(null)} className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg">{t('logout')}</button>
+            </div>
+          </div>
+        </header>
+        <main className="p-6">{pages[page]}</main>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
